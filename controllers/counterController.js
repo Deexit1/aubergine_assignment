@@ -3,6 +3,9 @@
  * @module counterController
  */
 
+const logger = require("../config/loggerConfig");
+const Counter = require("../models/counter");
+
 /**
  * Keeps track of counts for different IDs.
  * @type {Object.<string, number>}
@@ -16,16 +19,24 @@ let counter = {};
  * @param {Object} res - Express response object.
  * @returns {Object} - JSON response containing the count for the given ID.
  */
-exports.getCount = (req, res) => {
+exports.getCount = async (req, res) => {
   const { id } = req.params;
 
-  if (Object.keys(counter).includes(id)) {
-    counter[id] += 1;
-  } else {
-    counter[id] = 1;
-  }
+  try {
+    let counter = await Counter.findOne({ id });
+    if (!counter) {
+      counter = await Counter.create({ id, count: 0 });
+    }
 
-  res.status(200).json({ count: counter[id] });
+    counter.count += 1;
+    await counter.save();
+
+    logger.info(`Count incremented for ID: ${id}`);
+    res.status(200).json({ count: counter.count });
+  } catch (err) {
+    logger.error(`Error getting count: ${err}`);
+    res.send(500).json({ message: "Internal Server Error" });
+  }
 };
 
 /**
@@ -35,10 +46,21 @@ exports.getCount = (req, res) => {
  * @param {Object} res - Express response object.
  * @returns {Object} - JSON response indicating the count has been reset.
  */
-exports.resetCount = (req, res) => {
+exports.resetCount = async (req, res) => {
   const { id } = req.params;
 
-  counter[id] = 0;
+  try {
+    let counter = await Counter.findOne({ id });
+    if (!counter) {
+      counter = await Counter.create({ id, count: 0 });
+    }
+    counter.count = 0;
+    await counter.save();
 
-  res.status(200).json({ count: counter[id] });
+    logger.info(`Count reset for ID: ${id}`);
+    res.status(200).json({ count: counter.count });
+  } catch (err) {
+    logger.error(`Error resetting count of ${id}: ${err}`);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
 };
